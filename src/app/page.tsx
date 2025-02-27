@@ -1,43 +1,159 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useState } from "react"              
-import { useForm } from "react-hook-form"
-import * as z from "zod"
+import { useState, ChangeEvent, FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
-// Form validation schema
-const formSchema = z.object({
-  studentName: z.string().min(2, { message: "Student name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  dateOfBirth: z.string().min(1, { message: "Date of birth is required." }),
-  address: z.string().min(5, { message: "Address must be at least 5 characters." }),
-  cityStateZip: z.string().min(5, { message: "City, state, and zip code are required." }),
-  phoneHome: z.string().min(10, { message: "Home phone must be at least 10 digits." }),
-  phoneCell: z.string().min(10, { message: "Cell phone must be at least 10 digits." }),
-})
+// Define TypeScript interfaces
+interface FormData {
+  studentName: string;
+  email: string;
+  dateOfBirth: string;
+  address: string;
+  cityStateZip: string;
+  phoneHome: string;
+  phoneCell: string;
+}
+
+interface FormErrors {
+  studentName: string;
+  email: string;
+  dateOfBirth: string;
+  address: string;
+  cityStateZip: string;
+  phoneHome: string;
+  phoneCell: string;
+}
+
+interface FormGroupProps {
+  label: string;
+  name: keyof FormData;
+  type?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  error: string;
+}
 
 export default function EnrollmentForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [formData, setFormData] = useState<FormData>({
+    studentName: "",
+    email: "",
+    dateOfBirth: "",
+    address: "",
+    cityStateZip: "",
+    phoneHome: "",
+    phoneCell: "",
+  });
+  
+  const [errors, setErrors] = useState<FormErrors>({
+    studentName: "",
+    email: "",
+    dateOfBirth: "",
+    address: "",
+    cityStateZip: "",
+    phoneHome: "",
+    phoneCell: "",
+  });
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      studentName: "",
-      email: "",
-      dateOfBirth: "",
-      address: "",
-      cityStateZip: "",
-      phoneHome: "",
-      phoneCell: "",
-    },
-  })
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+    
+    // Clear the error when user starts typing
+    if (errors[name as keyof FormErrors]) {
+      setErrors({
+        ...errors,
+        [name]: "",
+      });
+    }
+  };
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true)
+  const validateForm = (): boolean => {
+    let isValid = true;
+    const newErrors = { ...errors };
+    
+    // Student name validation
+    if (formData.studentName.length < 2) {
+      newErrors.studentName = "Student name must be at least 2 characters.";
+      isValid = false;
+    } else {
+      newErrors.studentName = "";
+    }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address.";
+      isValid = false;
+    } else {
+      newErrors.email = "";
+    }
+    
+    // Date of birth validation
+    if (!formData.dateOfBirth) {
+      newErrors.dateOfBirth = "Date of birth is required.";
+      isValid = false;
+    } else {
+      newErrors.dateOfBirth = "";
+    }
+    
+    // Address validation
+    if (formData.address.length < 5) {
+      newErrors.address = "Address must be at least 5 characters.";
+      isValid = false;
+    } else {
+      newErrors.address = "";
+    }
+    
+    // City, state, zip validation
+    if (formData.cityStateZip.length < 5) {
+      newErrors.cityStateZip = "City, state, and zip code are required.";
+      isValid = false;
+    } else {
+      newErrors.cityStateZip = "";
+    }
+    
+    // Phone validations
+    if (formData.phoneHome.length < 10) {
+      newErrors.phoneHome = "Home phone must be at least 10 digits.";
+      isValid = false;
+    } else {
+      newErrors.phoneHome = "";
+    }
+    
+    if (formData.phoneCell.length < 10) {
+      newErrors.phoneCell = "Cell phone must be at least 10 digits.";
+      isValid = false;
+    } else {
+      newErrors.phoneCell = "";
+    }
+    
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error("Please correct the errors in the form.");
+      return;
+    }
+    
+    setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/enroll", {
@@ -45,154 +161,146 @@ export default function EnrollmentForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
-      })
+        body: JSON.stringify(formData),
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to submit enrollment")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to submit enrollment");
       }
 
-      // toast({
-      //   title: "Enrollment Submitted",
-      //   description: "Your enrollment has been successfully submitted.",
-      // })
+      // Success toast notification
+      toast.success("Enrollment Submitted", {
+        description: "Your enrollment has been successfully submitted.",
+      });
 
       // Reset form after successful submission
-      form.reset()
+      setFormData({
+        studentName: "",
+        email: "",
+        dateOfBirth: "",
+        address: "",
+        cityStateZip: "",
+        phoneHome: "",
+        phoneCell: "",
+      });
 
       // Optionally redirect to a success page
       // router.push("/enroll/success");
     } catch (error) {
-      console.error("Submission error:", error)
-      // toast({
-      //   title: "Submission Failed",
-      //   description: error instanceof Error ? error.message : "Failed to submit enrollment",
-      //   variant: "destructive",
-      // })
+      console.error("Submission error:", error);
+      
+      // Error toast notification
+      toast.error("Submission Failed", {
+        description: error instanceof Error ? error.message : "Failed to submit enrollment",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
+
+  // FormGroup component to reduce repetition
+  const FormGroup = ({ label, name, type = "text", placeholder, value, onChange, error }: FormGroupProps) => (
+    <div className="space-y-2">
+      <label htmlFor={name} className="text-sm font-medium">
+        {label}
+      </label>
+      <Input
+        id={name}
+        name={name}
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        className={error ? "border-red-500" : ""}
+      />
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
 
   return (
     <div className="container mx-auto py-10">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle className="text-2xl">Student Enrollment Form</CardTitle>
-          <CardDescription>Please fill out all fields to complete your enrollment.</CardDescription>
+          <CardDescription>
+            Please fill out all fields to complete your enrollment.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="studentName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Student Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Full Name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormGroup
+              label="Student Name"
+              name="studentName"
+              placeholder="Full Name"
+              value={formData.studentName}
+              onChange={handleChange}
+              error={errors.studentName}
+            />
+
+            <FormGroup
+              label="Email"
+              name="email"
+              type="email"
+              placeholder="email@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              error={errors.email}
+            />
+
+            <FormGroup
+              label="Date of Birth"
+              name="dateOfBirth"
+              type="date"
+              value={formData.dateOfBirth}
+              onChange={handleChange}
+              error={errors.dateOfBirth}
+            />
+
+            <FormGroup
+              label="Street Address"
+              name="address"
+              placeholder="123 Main St"
+              value={formData.address}
+              onChange={handleChange}
+              error={errors.address}
+            />
+
+            <FormGroup
+              label="City, State, Zip"
+              name="cityStateZip"
+              placeholder="New York, NY 10001"
+              value={formData.cityStateZip}
+              onChange={handleChange}
+              error={errors.cityStateZip}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormGroup
+                label="Home Phone"
+                name="phoneHome"
+                placeholder="(555) 123-4567"
+                value={formData.phoneHome}
+                onChange={handleChange}
+                error={errors.phoneHome}
               />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              <FormGroup
+                label="Cell Phone"
+                name="phoneCell"
+                placeholder="(555) 987-6543"
+                value={formData.phoneCell}
+                onChange={handleChange}
+                error={errors.phoneCell}
               />
+            </div>
 
-              <FormField
-                control={form.control}
-                name="dateOfBirth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date of Birth</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Street Address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123 Main St" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="cityStateZip"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City, State, Zip</FormLabel>
-                    <FormControl>
-                      <Input placeholder="New York, NY 10001" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="phoneHome"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Home Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(555) 123-4567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phoneCell"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cell Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(555) 987-6543" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit Enrollment"}
-              </Button>
-            </form>
-          </Form>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit Enrollment"}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
-
