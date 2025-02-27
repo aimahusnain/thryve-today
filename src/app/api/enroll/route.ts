@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(enrollment, { status: 201 })
+    return NextResponse.json(enrollment, { status: 200 })
   } catch (error) {
     console.error("Error creating enrollment:", error)
     return NextResponse.json({ error: "Failed to create enrollment" }, { status: 500 })
